@@ -88,6 +88,7 @@ window.addEventListener('resize', () => {
     camera.aspect = window.innerWidth / window.innerHeight;
     console.log(canvas.width,canvas.clientWidth)
     camera.updateProjectionMatrix();
+    render();
 });
 
 var ii = new THREE.Vector3( 0, 0, 1 );
@@ -237,16 +238,19 @@ function updateGraph(val) {
   line.geometry = new THREE.WireframeGeometry( graph.geometry );
   // var volSkel = new THREE.LineSegments(volGeometry, lineMaterial);
   // volMesh.add(volSkel);
+  render();
 }
 
-updateGraph("f");
+// updateGraph("f");
 
 var graphFolder = gui.addFolder("Graph");
 graphFolder.add(data,'f',Object.keys(functionData)).onChange((val) => {
-  updateBoxData(); updateGraph(val);
+  updateBoxData(); updateGraph(val); updateSlice(data.ySlice);
   });
-graphFolder.add(graph,'visible').name("Show Graph");
-graphFolder.add(graph.material,'opacity',0.0,1.0);
+graphFolder.add(graph,'visible').name("Show Graph").onChange(updateGraph);
+graphFolder.add(graph.material,'opacity',0.0,1.0).onChange(()=>{
+  setTimeout(render,100);
+});
 
 // Lights
 
@@ -270,9 +274,10 @@ controls.target.set( ymin/2 + ymax/2,0,xmin/2 + xmax/2 );
 var boxData = {N: 4, M: 4};
 var boxHolder = new THREE.Object3D();
 scene.add(boxHolder);
+boxHolder.visible = false;
 
 var boxFolder = gui.addFolder("Reimann Sum")
-boxFolder.add(boxHolder,'visible');
+boxFolder.add(boxHolder,'visible').name("Show boxes").onChange(updateBoxData);
 boxFolder.add(boxData,'N',1,40,1).onChange(updateBoxData);
 boxFolder.add(boxData,'M',1,40,1).onChange(updateBoxData);
 
@@ -318,10 +323,8 @@ function updateBoxData() {
   // console.log("Box pos", box.position);
     }
   }
+  render();
 }
-
-updateBoxData();
-boxHolder.visible = false;
 
 //surface area
 
@@ -355,42 +358,79 @@ function updateSlice(ySlice) {
     sliceHolder.remove(element);
   }
   var sliceVertices = [];
-  var dx = (xmax - xmin)/nX;
-  sliceVertices.push(new THREE.Vector2(0,0));
-  sliceVertices.push(new THREE.Vector2(xmin,0));
-  for (let index = 0; index <= nX; index++) {
-    sliceVertices.push(new THREE.Vector2(xmin + index*dx,functionData[data.f](xmin + index*dx,ySlice)));
-  }
-  sliceVertices.push(new THREE.Vector2(xmax,0));
-  sliceVertices.push(new THREE.Vector2(xmax,0));
+  var dx = (xmax - xmin)/(nX);
+  var f = functionData[data.f];
+  var yOld,yNew;
+  // sliceVertices.push(new THREE.Vector2(0,0));
+  // sliceVertices.push(new THREE.Vector2(xmin,0));
+  // for (let index = 0; index <= (nX); index++) {
+  //   sliceVertices.push(new THREE.Vector2(xmin + index*dx,functionData[data.f](xmin + index*dx,ySlice)));
+  // }
+  // sliceVertices.push(new THREE.Vector2(xmax,0));
+  // sliceVertices.push(new THREE.Vector2(xmax,0));
 
   // console.log(sliceVertices);
 
-  var sliceShape = new THREE.Shape(sliceVertices);
-  var sliceGeometry = new THREE.ShapeGeometry(sliceShape);
-  var slice = new THREE.Mesh(sliceGeometry,boxMaterials[0]);
-  slice.position.x = ySlice;
-  slice.rotation.y = -Math.PI/2;
-  sliceHolder.add(slice);
+  // var sliceShape = new THREE.Shape(sliceVertices);
+  var sliceShape = new THREE.Shape();
+  sliceShape.moveTo(xmin,0);
+  // less than 0
+  var sliceMinus = new THREE.Shape();
+  sliceMinus.moveTo(xmin,0);
+  yOld = 0;
+  for (let i = 0; i <= (nX); i++) {
+    yNew = f(xmin + i*dx,ySlice);
+    // interpolate 0-location when changing signs
+    if (yNew * yOld < 0) {
+      sliceShape.lineTo(xmin + (i-1)*dx + yOld/(yOld - yNew)*dx,0);
+      sliceMinus.lineTo(xmin + (i-1)*dx + yOld/(yOld - yNew)*dx,0);
+    } 
+    
+    (yNew >= 0) ? sliceShape.lineTo(xmin + i*dx,yNew) : sliceMinus.lineTo(xmin + i*dx,yNew);
+    
+    yOld = yNew;
+  }
+
+  sliceShape.lineTo(xmax,0);
+  sliceShape.lineTo(xmin,0);
+  sliceMinus.lineTo(xmax,0);
+  sliceMinus.lineTo(xmin,0);
+
+
+  for (var i = 0; i<=1; i++) {
+    var shape = [sliceShape,sliceMinus][i]
+    var sliceGeometry = new THREE.ShapeGeometry(shape);
+    var slice = new THREE.Mesh(sliceGeometry,boxMaterials[i]);
+    slice.position.x = ySlice;
+    slice.rotation.y = -Math.PI/2;
+    sliceHolder.add(slice);
+  }
+  render();
 }
 
 var sliceFolder = gui.addFolder("Slice");
 sliceFolder.add(data,'ySlice',ymin,ymax).name("y-slice").onChange(updateSlice);
 
-updateSlice(data.ySlice);
+
 
 var render = function() {
-    controls.update();
+    // controls.update();
     for (let index = 0; index < axesText.length; index++) {
       const element = axesText[index];
       element.lookAt(camera.position);
     }
 
     renderer.render(scene, camera);
-    requestAnimationFrame(render);
+    // requestAnimationFrame(render);
 };
 
-requestAnimationFrame(render);
+render();
+controls.addEventListener('change',render);
+updateGraph("f");
+updateBoxData();
+updateSlice(data.ySlice);
+
+// requestAnimationFrame(render);
 
 </script>
 </html>
