@@ -211,18 +211,22 @@ const d = 3;
 // Functions
 
 var functionData = {
-  f: function(u,v) {
+  poly: function(u,v) {
        return 1 - Math.pow(u,2)/4 + Math.pow(v,3)/10
      },
   wave: function(u,v) {
-       return (1 - Math.cos(Math.PI*u/2)/2) / (1 + v*v/2);
+       return 2*(1 - Math.cos(Math.PI*u/2)/2) / (1 + v*v/2);
+     },
+  plane: function(u,v) {
+       return u/3 - v/2 + 1;
      }
 };
 
 console.log(Object.keys(functionData));
 
 var data = {f: "wave",
-            ySlice: 0};
+            tSlice: 0,
+            axis: 'x'};
 
 var graphHolder = new THREE.Object3D();
 scene.add(graphHolder);
@@ -257,7 +261,7 @@ function updateGraph(val) {
 
 var graphFolder = gui.addFolder("Graph");
 graphFolder.add(data,'f',Object.keys(functionData)).onChange((val) => {
-  updateBoxData(); updateGraph(val); updateSlice(data.ySlice);
+  updateBoxData(); updateGraph(val); updateSlice(data.tSlice);
   });
 graphFolder.add(graph,'visible').name("Show Graph").onChange(updateGraph);
 graphFolder.add(graph.material,'opacity',0.0,1.0).onChange(()=>{
@@ -309,7 +313,7 @@ function updateBoxData() {
   var dx = (xmax - xmin)/boxData.N;
   var dy = (ymax - ymin)/boxData.M;
   var boxGeometry;
-  console.log(boxData.N,dx,boxData.M,dy)
+  // console.log(boxData.N,dx,boxData.M,dy)
 
   var box;
   var x,y,z;
@@ -321,7 +325,8 @@ function updateBoxData() {
     for (let j = 0; j < boxData.M; j++) {
       x = xmin + i*dx;
       y = ymin + j*dy;
-      z = functionData[data.f](x+dx/2,y+dy/2);
+      // z = functionData[data.f](x+dx/2,y+dy/2);
+      z = functionData[data.f](x,y); //SW corner sampling.
       boxGeometry = new THREE.BoxGeometry(dy,Math.abs(z),dx);
       box = new THREE.Mesh(boxGeometry,boxMaterials[(z < 0) ? 1 : 0]);
       box.position.z = x + dx/2;
@@ -364,54 +369,87 @@ function updateBoxData() {
 var sliceHolder = new THREE.Object3D();
 scene.add(sliceHolder);
 
-function updateSlice(ySlice) {
-  for (let index = sliceHolder.children.length - 1; index >=0; index--) {
-    const element = sliceHolder.children[index];
-    sliceHolder.remove(element);
-  }
-  var sliceVertices = [];
-  var dx = (xmax - xmin)/(nX);
-  var f = functionData[data.f];
-  var yOld,yNew;
+function updateSlice() {
+  if (data.axis == 'None') {
+    sliceHolder.visible = false;
+  } else {
+    sliceHolder.visible = true;
+  
+    for (let index = sliceHolder.children.length - 1; index >=0; index--) {
+      const element = sliceHolder.children[index];
+      sliceHolder.remove(element);
+    }
+    var level,dx,start,end,f;
+    if (data.axis == 'x') {
+      level = xmin + data.tSlice*(xmax - xmin);
+      f = (t) => {return functionData[data.f](level,t);};
+      dx = (ymax - ymin)/(nX);
+      start = ymin;
+      end = ymax;
+    } else {
+      level = ymin + data.tSlice*(ymax - ymin);
+      f = (t) => {return functionData[data.f](t,level);};
+      dx = (xmax - xmin)/(nX);
+      start = xmin;
+      end = xmax;
+    }
+    var sliceVertices = [];
+    var yOld,yNew;
 
-  var sliceShape = new THREE.Shape();
-  sliceShape.moveTo(xmin,0);
-  // less than 0
-  var sliceMinus = new THREE.Shape();
-  sliceMinus.moveTo(xmin,0);
-  yOld = 0;
-  for (let i = 0; i <= (nX); i++) {
-    yNew = f(xmin + i*dx,ySlice);
-    // interpolate 0-location when changing signs
-    if (yNew * yOld < 0) {
-      sliceShape.lineTo(xmin + (i-1)*dx + yOld/(yOld - yNew)*dx,0);
-      sliceMinus.lineTo(xmin + (i-1)*dx + yOld/(yOld - yNew)*dx,0);
-    } 
-    
-    (yNew >= 0) ? sliceShape.lineTo(xmin + i*dx,yNew) : sliceMinus.lineTo(xmin + i*dx,yNew);
-    
-    yOld = yNew;
-  }
+    var nonempty = [false,false];
 
-  sliceShape.lineTo(xmax,0);
-  sliceShape.lineTo(xmin,0);
-  sliceMinus.lineTo(xmax,0);
-  sliceMinus.lineTo(xmin,0);
+    var sliceShape = new THREE.Shape();
+    sliceShape.moveTo(start,0);
+    // less than 0
+    var sliceMinus = new THREE.Shape();
+    sliceMinus.moveTo(start,0);
+    yOld = 0;
+    for (let i = 0; i <= (nX); i++) {
+      yNew = f(start + i*dx);
+      // interpolate 0-location when changing signs
+      if (yNew * yOld < 0) {
+        sliceShape.lineTo(start + (i-1)*dx + yOld/(yOld - yNew)*dx,0);
+        sliceMinus.lineTo(start + (i-1)*dx + yOld/(yOld - yNew)*dx,0);
+      } 
+      
+      if (yNew >= 0) { 
+        sliceShape.lineTo(start + i*dx,yNew); 
+        nonempty[0] = true;
+      } else { 
+        sliceMinus.lineTo(start + i*dx,yNew);
+        nonempty[1] = true;
+      }
+      yOld = yNew;
+    }
+
+    sliceShape.lineTo(end,0);
+    sliceShape.lineTo(start,0);
+    sliceMinus.lineTo(end,0);
+    sliceMinus.lineTo(start,0);
 
 
-  for (var i = 0; i<=1; i++) {
-    var shape = [sliceShape,sliceMinus][i]
-    var sliceGeometry = new THREE.ShapeGeometry(shape);
-    var slice = new THREE.Mesh(sliceGeometry,boxMaterials[i]);
-    slice.position.x = ySlice;
-    slice.rotation.y = -Math.PI/2;
-    sliceHolder.add(slice);
+    for (var i = 0; i<=1; i++) {
+      if (nonempty[i]){
+        var shape = [sliceShape,sliceMinus][i]
+        var sliceGeometry = new THREE.ShapeGeometry(shape);
+        var slice = new THREE.Mesh(sliceGeometry,boxMaterials[i]);
+        if (data.axis == 'x'){
+          slice.position.z = level;
+          // slice.rotation.y = Math.PI;
+        } else {
+          slice.position.x = level;
+          slice.rotation.y = -Math.PI/2;
+        }
+        sliceHolder.add(slice);
+      }
+    }
   }
   render();
 }
 
 var sliceFolder = gui.addFolder("Slice");
-sliceFolder.add(data,'ySlice',ymin,ymax).name("y-slice").onChange(updateSlice);
+sliceFolder.add(data,'axis',['x','y','None']).name("Axis").onChange(updateSlice);
+sliceFolder.add(data,'tSlice',0,1).name("Level").onChange(updateSlice);
 
 
 
@@ -430,7 +468,7 @@ render();
 controls.addEventListener('change',render);
 updateGraph("f");
 updateBoxData();
-updateSlice(data.ySlice);
+updateSlice(data.tSlice);
 
 // requestAnimationFrame(render);
 
