@@ -156,28 +156,35 @@ var font = loader.load(
 	// resource URL
 	'fonts/P052_Italic.json',
   function (font) {
-    // var shapes = font.generateShapes( 'x', 100 );
-    // var textGeo = new THREE.BufferGeometry(shapes);
-    var textGeo = new THREE.TextGeometry( 'x', {
-		font: font,
-		size: 0.5,
-		height: 0,
-		curveSegments: 12,
-		bevelEnabled: false
-	} );
-    // var textMaterial = new THREE.MeshBasicMaterial({color: axesMaterial})
-    var textHolder = new THREE.Object3D();
-    var text = new THREE.Mesh(textGeo,axesMaterial);
-    // text.computeBoundingBox();
-    
-    textGeo.computeBoundingBox();
-    textGeo.boundingBox.getCenter(text.position).multiplyScalar(-1);
-    textHolder.position.z = gridMax*1.6;
-    scene.add(textHolder);
-    textHolder.add(text);
+    var xyz = ['x','y','z'];
+    var tPos = 1.7*gridMax;
+    for (var i = 0; i < 3; i++) {
+      var textGeo = new THREE.TextGeometry( xyz[i], {
+      font: font,
+      size: 0.5,
+      height: 0,
+      curveSegments: 12,
+      bevelEnabled: false
+    } );
+      // var textMaterial = new THREE.MeshBasicMaterial({color: axesMaterial})
+      var textHolder = new THREE.Object3D();
+      var text = new THREE.Mesh(textGeo,axesMaterial);
+      // text.computeBoundingBox();
+      
+      textGeo.computeBoundingBox();
+      textGeo.boundingBox.getCenter(text.position).multiplyScalar(-1);
 
-    axesText.push(textHolder);
-    console.log("pushed: ",'xyz'[2])
+      if (i == 0) { textHolder.position.z = tPos; } else {
+        if (i ==1) {
+          textHolder.position.x = tPos;
+        } else { textHolder.position.y = tPos; }
+      }
+      scene.add(textHolder);
+      textHolder.add(text);
+
+      axesText.push(textHolder);
+      // console.log("pushed: ",'xyz'[i])
+    }
   },
   // onProgress callback
 	function ( xhr ) {
@@ -358,7 +365,7 @@ var sliceHolder = new THREE.Object3D();
 scene.add(sliceHolder);
 
 function updateSlice(ySlice) {
-  for (let index = 0; index < sliceHolder.children.length; index++) {
+  for (let index = sliceHolder.children.length - 1; index >=0; index--) {
     const element = sliceHolder.children[index];
     sliceHolder.remove(element);
   }
@@ -366,17 +373,7 @@ function updateSlice(ySlice) {
   var dx = (xmax - xmin)/(nX);
   var f = functionData[data.f];
   var yOld,yNew;
-  // sliceVertices.push(new THREE.Vector2(0,0));
-  // sliceVertices.push(new THREE.Vector2(xmin,0));
-  // for (let index = 0; index <= (nX); index++) {
-  //   sliceVertices.push(new THREE.Vector2(xmin + index*dx,functionData[data.f](xmin + index*dx,ySlice)));
-  // }
-  // sliceVertices.push(new THREE.Vector2(xmax,0));
-  // sliceVertices.push(new THREE.Vector2(xmax,0));
 
-  // console.log(sliceVertices);
-
-  // var sliceShape = new THREE.Shape(sliceVertices);
   var sliceShape = new THREE.Shape();
   sliceShape.moveTo(xmin,0);
   // less than 0
