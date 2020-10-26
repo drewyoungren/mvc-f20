@@ -166,13 +166,18 @@ var font = loader.load(
 		bevelEnabled: false
 	} );
     // var textMaterial = new THREE.MeshBasicMaterial({color: axesMaterial})
+    var textHolder = new THREE.Object3D();
     var text = new THREE.Mesh(textGeo,axesMaterial);
     // text.computeBoundingBox();
-    text.rotation.y =  - Math.PI/2;
-    text.position.z = gridMax*1.6;
-    scene.add(text);
-    axesText.push(text);
-    console.log("pushed: ",axesText)
+    
+    textGeo.computeBoundingBox();
+    textGeo.boundingBox.getCenter(text.position).multiplyScalar(-1);
+    textHolder.position.z = gridMax*1.6;
+    scene.add(textHolder);
+    textHolder.add(text);
+
+    axesText.push(textHolder);
+    console.log("pushed: ",'xyz'[2])
   },
   // onProgress callback
 	function ( xhr ) {
