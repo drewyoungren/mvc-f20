@@ -35,7 +35,12 @@
 <div id="infocontainer" style="width: 800px;">
 
   <div id="info"> <span class="noselect" id="infobutton" onclick="javascript:clickInfo();"><b>&oplus; Info</b></span>
-    <p id="infop" style="display: none; width: 800px;">Visualize a Riemann Sum of a double integral. If I keep typing, how wide does this get ;Lorem ipsum dolor, sit amet consectetur adipisicing elit. Est vero error culpa sed, animi quaerat! Illum, vitae debitis eos ut ipsum qui, error eum saepe ratione nesciunt repellat iusto quis!</p>
+    <div id="infop" style="display: none; width: 800px;">
+    <p >Visualize a Riemann Sum of a double integral over a rectangle \(\mathcal{R} = [a,b]\times [c,d]\). 
+    $$ I = \iint_\mathcal{R} f\,dA $$
+    <span id="approxI"></span></p>
+    <p id="sliceInt"><span id="sliceIntFormula">\( \int_c^d f(x,y) \,dy  = \) </span> <span id="sliceIntValue"></span></p>
+    </div>
   </div>
 </div>
 
@@ -321,12 +326,14 @@ function updateBoxData() {
     let element = boxes[j];
     boxHolder.remove(element);
   }
+  var approxDoubleIntegral = 0;
   for (var i = 0; i < boxData.N; i++) {
     for (let j = 0; j < boxData.M; j++) {
       x = xmin + i*dx;
       y = ymin + j*dy;
       // z = functionData[data.f](x+dx/2,y+dy/2);
       z = functionData[data.f](x,y); //SW corner sampling.
+      approxDoubleIntegral += z;
       boxGeometry = new THREE.BoxGeometry(dy,Math.abs(z),dx);
       box = new THREE.Mesh(boxGeometry,boxMaterials[(z < 0) ? 1 : 0]);
       box.position.z = x + dx/2;
@@ -340,6 +347,9 @@ function updateBoxData() {
   // console.log("Box pos", box.position);
     }
   }
+  var element = document.querySelector("#approxI");
+  element.innerHTML = "$$ \\approx \\sum_{i = 0}^ {" + (boxData.M-1).toString() + "}\\sum_{j = 0}^{" + (boxData.N-1).toString() + "}f(a + i\\Delta x,c + j\\Delta y) = " + (Math.round(approxDoubleIntegral*dx*dy*100)/100).toString() + "$$";
+  MathJax.typeset();
   render();
 }
 
@@ -371,8 +381,11 @@ scene.add(sliceHolder);
 
 function updateSlice() {
   if (data.axis == 'None') {
+    var element = document.querySelector("#sliceInt");
     sliceHolder.visible = false;
+    element.innerHTML = '<p id="sliceInt"><span id="sliceIntFormula"></span> <span id="sliceIntValue"></span>';
   } else {
+    var element = document.querySelector("#sliceIntValue");
     sliceHolder.visible = true;
   
     for (let index = sliceHolder.children.length - 1; index >=0; index--) {
@@ -404,8 +417,10 @@ function updateSlice() {
     var sliceMinus = new THREE.Shape();
     sliceMinus.moveTo(start,0);
     yOld = 0;
+    var sliceInt = 0;
     for (let i = 0; i <= (nX); i++) {
       yNew = f(start + i*dx);
+      sliceInt += yNew;
       // interpolate 0-location when changing signs
       if (yNew * yOld < 0) {
         sliceShape.lineTo(start + (i-1)*dx + yOld/(yOld - yNew)*dx,0);
@@ -427,6 +442,9 @@ function updateSlice() {
     sliceMinus.lineTo(end,0);
     sliceMinus.lineTo(start,0);
 
+    // finish trapezoid rule
+    sliceInt -= f(start) + f(end);
+    sliceInt *= dx;
 
     for (var i = 0; i<=1; i++) {
       if (nonempty[i]){
@@ -436,19 +454,29 @@ function updateSlice() {
         if (data.axis == 'x'){
           slice.position.z = level;
           // slice.rotation.y = Math.PI;
+          // element.innerHTML = "$$ \\int_c^d f(" + level.toString() + ",y)\\,dy = " + sliceInt.toString() + "$$";
         } else {
           slice.position.x = level;
           slice.rotation.y = -Math.PI/2;
+          // element.innerHTML = "$$ \\int_a^b f(x," + level.toString(2) + ")\\,dx = " + sliceInt.toString(2) + "$$";
         }
+        element.innerHTML = (Math.round(100*sliceInt)/100).toString();
         sliceHolder.add(slice);
+        // MathJax.typeset();
       }
     }
+    
   }
   render();
 }
 
 var sliceFolder = gui.addFolder("Slice");
-sliceFolder.add(data,'axis',['x','y','None']).name("Axis").onChange(updateSlice);
+sliceFolder.add(data,'axis',['x','y','None']).name("Axis").onChange((val) => {
+  var element = document.querySelector("#sliceIntFormula");
+  element.innerHTML = val == 'y' ? "\\( \\int_a^b f(x,y) \\,dx  = \\) " : "\\( \\int_c^d f(x,y) \\,dy  = \\) ";
+  updateSlice();
+  MathJax.typeset();
+});
 sliceFolder.add(data,'tSlice',0,1).name("Level").onChange(updateSlice);
 
 
