@@ -216,15 +216,22 @@ const d = 3;
 // Functions
 
 var functionData = {
-  poly: function(u,v) {
-       return 1 - Math.pow(u,2)/4 + Math.pow(v,3)/10
-     },
-  wave: function(u,v) {
-       return 2*(1 - Math.cos(Math.PI*u/2)/2) / (1 + v*v/2);
-     },
-  plane: function(u,v) {
+  poly: {
+          func: function(u,v) {
+            return 1 - Math.pow(u,2)/4 + Math.pow(v,3)/10;
+          },
+          latex: "\\left(1 - \\frac{x^2}{4} + \\frac{y^3}{10}\\right)"
+  },
+  wave: {
+          func: function(u,v) {
+            return 2*(1 - Math.cos(Math.PI*u/2)/2) / (1 + v*v/2);
+          },
+          latex: "\\frac{2\\cos(\\pi x/2)}{1 + y^2/2}"
+        },
+  plane: {func: function(u,v) {
        return u/3 - v/2 + 1;
-     }
+     },
+     latex: "\\left(\\frac{x}{3} - \\frac{y}{3} + 1\\right)"}
 };
 
 console.log(Object.keys(functionData));
@@ -252,7 +259,7 @@ function updateGraph(val) {
   var volGeometry = new THREE.ParametricGeometry(function(u,v,vec) {  
       u = (1-u)*a + u*b;
       v = (1-v)*c + v*d;
-      vec.set(v,functionData[data.f](u,v) ,u);
+      vec.set(v,functionData[data.f].func(u,v) ,u);
   }, nX, nX);
   graph.geometry = volGeometry;
   line.geometry.dispose();
@@ -269,9 +276,9 @@ graphFolder.add(data,'f',Object.keys(functionData)).onChange((val) => {
   updateBoxData(); updateGraph(val); updateSlice(data.tSlice);
   });
 graphFolder.add(graph,'visible').name("Show Graph").onChange(updateGraph);
-graphFolder.add(graph.material,'opacity',0.0,1.0).onChange(()=>{
-  setTimeout(render,100);
-});
+// graphFolder.add(graph.material,'opacity',0.0,1.0).onChange(()=>{
+//   setTimeout(render,100);
+// });
 
 // Lights
 
@@ -331,8 +338,8 @@ function updateBoxData() {
     for (let j = 0; j < boxData.M; j++) {
       x = xmin + i*dx;
       y = ymin + j*dy;
-      // z = functionData[data.f](x+dx/2,y+dy/2);
-      z = functionData[data.f](x,y); //SW corner sampling.
+      // z = functionData[data.f].func(x+dx/2,y+dy/2);
+      z = functionData[data.f].func(x,y); //SW corner sampling.
       approxDoubleIntegral += z;
       boxGeometry = new THREE.BoxGeometry(dy,Math.abs(z),dx);
       box = new THREE.Mesh(boxGeometry,boxMaterials[(z < 0) ? 1 : 0]);
@@ -395,13 +402,13 @@ function updateSlice() {
     var level,dx,start,end,f;
     if (data.axis == 'x') {
       level = xmin + data.tSlice*(xmax - xmin);
-      f = (t) => {return functionData[data.f](level,t);};
+      f = (t) => {return functionData[data.f].func(level,t);};
       dx = (ymax - ymin)/(nX);
       start = ymin;
       end = ymax;
     } else {
       level = ymin + data.tSlice*(ymax - ymin);
-      f = (t) => {return functionData[data.f](t,level);};
+      f = (t) => {return functionData[data.f].func(t,level);};
       dx = (xmax - xmin)/(nX);
       start = xmin;
       end = xmax;
