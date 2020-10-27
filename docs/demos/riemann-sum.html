@@ -238,7 +238,7 @@ console.log(Object.keys(functionData));
 
 var data = {f: "wave",
             tSlice: 0,
-            axis: 'x'};
+            axis: 'None'};
 
 var graphHolder = new THREE.Object3D();
 scene.add(graphHolder);
@@ -331,6 +331,8 @@ function updateBoxData() {
   var x,y,z;
   for (var j = 0; j < boxes.length; j++) {
     let element = boxes[j];
+    element.geometry.dispose()
+    element.children[0].geometry.dispose()
     boxHolder.remove(element);
   }
   var approxDoubleIntegral = 0;
@@ -341,7 +343,7 @@ function updateBoxData() {
       // z = functionData[data.f].func(x+dx/2,y+dy/2);
       z = functionData[data.f].func(x,y); //SW corner sampling.
       approxDoubleIntegral += z;
-      boxGeometry = new THREE.BoxGeometry(dy,Math.abs(z),dx);
+      boxGeometry = new THREE.BoxBufferGeometry(dy,Math.abs(z),dx);
       box = new THREE.Mesh(boxGeometry,boxMaterials[(z < 0) ? 1 : 0]);
       box.position.z = x + dx/2;
       box.position.x = y + dy/2;
@@ -397,6 +399,7 @@ function updateSlice() {
   
     for (let index = sliceHolder.children.length - 1; index >=0; index--) {
       const element = sliceHolder.children[index];
+      element.geometry.dispose();
       sliceHolder.remove(element);
     }
     var level,dx,start,end,f;
