@@ -189,7 +189,7 @@ let functionData = {
       latex: "x - y + 3"
     },
     gaussian: {
-      func: (x,y) =>  {return Math.exp(-x*x - y*y)},
+      func: (x,y) =>  {return Math.exp(-x*x - y*y);},
       latex: "e^{-x^2 - y^2}"
     },
 };
@@ -263,8 +263,8 @@ function updateGraph() {
 updateGraph();
 
 let graphFolder = gui.addFolder("Graph");
-graphFolder.add(graphMesh,'visible').name("Show graph").onChange(render);
-graphFolder.add(graphSkin,'visible').name("Show mesh").onChange(render);
+graphFolder.add(graphMesh,'visible').name("Show graph").onChange(render).listen();
+graphFolder.add(graphSkin,'visible').name("Show mesh").onChange(render).listen();
 graphFolder.add(data,'f',Object.keys(functionData)).name("function").onChange(updatePieMan);
 graphFolder.add(data,'region',Object.keys(regionData)).name("region").onChange(updatePieMan);
 
@@ -299,14 +299,14 @@ function piePiece(innerRadius,thickness,thetaStart=0,angle=Math.PI/3,height=1,se
         }
       }
     }
-
-    let inVec0 = new THREE.Vector3(...corners[0]);
+    let inVec0 = new THREE.Vector3(...corners[4]);
     inVec0.multiplyScalar(-1);
     inVec0.normalize();
-    let inVec1 = new THREE.Vector3(...corners[2]);
+    let inVec1 = new THREE.Vector3(...corners[6]);
     inVec1.multiplyScalar(-1);
     inVec1.normalize();
-
+    
+    if ( innerRadius > 0) {
     // inner
     points.push(...corners[0]);
     points.push(...corners[1]);
@@ -328,7 +328,7 @@ function piePiece(innerRadius,thickness,thetaStart=0,angle=Math.PI/3,height=1,se
     colors.push(colorLeft.r,colorLeft.g,colorLeft.b);
     colors.push(color.r,color.g,color.b);
     colors.push(colorLeft.r,colorLeft.g,colorLeft.b);
-
+    }
     // outer
     points.push(...corners[4]);
     points.push(...corners[6]);
@@ -476,7 +476,7 @@ function updatePie() {
 //turn off by default
 pieMesh.visible = false;
 let pieFolder = gui.addFolder('Pie');
-pieFolder.add(pieMesh,'visible').onChange(render);
+pieFolder.add(pieMesh,'visible').onChange(render).listen();
 pieFolder.add(pieData,"innerRadius",0,20.0).onChange(() => {setTimeout(updatePie,100);});
 pieFolder.add(pieData,"thickness",0,20.0).onChange(() => {setTimeout(updatePie,100);});
 pieFolder.add(pieData,"thetaStart",0,2*Math.PI).onChange(() => {setTimeout(updatePie,100);});
@@ -580,7 +580,7 @@ updatePieMan();
 // updatePieMan();
 
 const pieManFolder = gui.addFolder("Polar Riemann");
-pieManFolder.add(pieManHolder,'visible').name("Show Reimann").onChange(render);
+pieManFolder.add(pieManHolder,'visible').name("Show Reimann").onChange(render).listen();
 pieManFolder.add(pieManData,'rSegments',1,30,1).onChange(updatePieMan);
 pieManFolder.add(pieManData,'thetaSegments',1,30,1).onChange(updatePieMan);
 
@@ -619,5 +619,13 @@ function render() {
 
 render();
 
+export function clearAllButPie() {
+  graphMesh.visible = false;
+  graphSkin.visible = false;
+  pieManHolder.visible = false;
+  pieMesh.visible = true;
+  render();
+}
 
+// clearAllButPie();
 // requestAnimationFrame(render);
