@@ -2,7 +2,8 @@
 
 import * as THREE from 'https://unpkg.com/three@0.121.0/build/three.module.js';
 import {OrbitControls} from 'https://unpkg.com/three@0.121.0/examples/jsm/controls/OrbitControls.js';
-import {GUI} from './dat.gui.module.js';
+import {Lut} from 'https://unpkg.com/three@0.121.0/examples/jsm/math/Lut.js';
+import {color, GUI} from './dat.gui.module.js';
 
 /* Some constants */
 let nX = 30; // resolution for surfaces
@@ -175,24 +176,34 @@ function disposeArray() {
   this.array = null;
 }
 
+
 let functionData = {
-    wave: {
-      func: (x,y) =>  {return 1 - Math.sin(x*Math.PI/6) + Math.cos(y*y/33);},
-      latex: "1-\\sin (\\pi x) + \\frac{\\cos(y^2)}{33}"
-    },
-    poly: {
-      func: (x,y) =>  {return 13 - x*x/13 - y*y/13;},
-      latex: "13 - \frac{x^2 + y^2}{13}"
-    },
-    plane: {
-      func: (x,y) =>  {return x/3-y/5 + 3;},
-      latex: "x - y + 3"
-    },
-    gaussian: {
-      func: (x,y) =>  {return Math.exp(-x*x - y*y);},
-      latex: "e^{-x^2 - y^2}"
-    },
+  wave: {
+    func: (x,y) =>  {return 1 - Math.sin(x*Math.PI/6) + Math.cos(y*y/33);},
+    latex: "1-\\sin (\\pi x) + \\frac{\\cos(y^2)}{33}",
+    vmax: 3,
+    vmin: -3,
+  },
+  poly: {
+    func: (x,y) =>  {return 13 - x*x/13 - y*y/13;},
+    latex: "13 - \\frac{x^2 + y^2}{13}",
+    vmax: 13,
+    vmin: 0,
+  },
+  plane: {
+    func: (x,y) =>  {return x/3-y/5 + 3;},
+    latex: "\\fracx3 - \\fracy5 + 3",
+    vmax: 10,
+    vmin: -4
+  },
+  gaussian: {
+    func: (x,y) =>  {return Math.exp(-x*x - y*y);},
+    latex: "e^{-x^2 - y^2}",
+    vmax: 1,
+    vmin: 0,
+  },
 };
+
 
 let regionData = {
   disk: {r: (u,v) => {
@@ -231,31 +242,57 @@ const whiteLineMaterial = new THREE.LineBasicMaterial({color: 0xffffff,linewidth
 
 // graph of function over region.
 
+// For color gradient
+
+
+let lut = new Lut();
+lut.setColorMap("cooltowarm");
+
 let graphHolder = new THREE.Object3D();
 graphWorld.add(graphHolder);
-let graphMaterial = new THREE.MeshPhongMaterial({ color: 0x555562, side: THREE.DoubleSide, shininess: 85 });
+let graphMaterial = new THREE.MeshPhongMaterial({ color: 0xaea3af, side: THREE.DoubleSide, shininess: 85,vertexColors: true });
 let graphMesh,graphSkin;
 
 function updateGraph() {
+  let color;
+  lut.setMin(functionData[data.f].vmin);
+  lut.setMax(functionData[data.f].vmax);
   for (let i = graphHolder.children.length - 1; i >= 0; i--) {
     const element = graphHolder.children[i];
     element.geometry.dispose();
   }
-  let graphGeometry = new THREE.ParametricGeometry((u,v,vec) => {
+  let graphGeometry = new THREE.ParametricBufferGeometry((u,v,vec) => {
     let xy = regionData[data.region].r(u,v);
     let x = xy[0];
     let y = xy[1];
     vec.set(x,y,functionData[data.f].func(x,y));
   },data.nX,data.nX);
+
+  let positions = graphGeometry.getAttribute('position');
+  console.log(positions.count, "positions", positions.getZ(234));
+  let colors = [];
+  for (let i = 0; i < positions.count; i++) {
+    const z = positions.getZ(i);
+    color = lut.getColor(z);
+    if ( color === undefined ) {
+
+      console.log( 'Unable to determine color for value:', z );
+
+    } else {
+      colors.push(color.r,color.g,color.b);
+    }
+  }
+  
   if (graphMesh == undefined) {
     graphMesh = new THREE.Mesh( graphGeometry, graphMaterial);
     graphSkin = new THREE.LineSegments(new THREE.WireframeGeometry( graphMesh.geometry ), lineMaterial );
     graphHolder.add(graphSkin);
     graphHolder.add(graphMesh);
   } else {
-  graphMesh.geometry = graphGeometry;
-  graphSkin.geometry = new THREE.WireframeGeometry( graphMesh.geometry );
+    graphMesh.geometry = graphGeometry;
+    graphSkin.geometry = new THREE.WireframeGeometry( graphMesh.geometry );
   }
+  graphGeometry.setAttribute('color', new THREE.Float32BufferAttribute( colors, 3 ));
 
   render();
 }
@@ -338,11 +375,11 @@ function piePiece(innerRadius,thickness,thetaStart=0,angle=Math.PI/3,height=1,se
     points.push(...corners[5]);
 
     normals.push(-inVec0.x,-inVec0.y,-inVec0.z);
-    normals.push(-inVec0.x,-inVec0.y,-inVec0.z);
-    normals.push(-inVec1.x,-inVec1.y,-inVec1.z);
     normals.push(-inVec1.x,-inVec1.y,-inVec1.z);
     normals.push(-inVec0.x,-inVec0.y,-inVec0.z);
     normals.push(-inVec1.x,-inVec1.y,-inVec1.z);
+    normals.push(-inVec1.x,-inVec1.y,-inVec1.z);
+    normals.push(-inVec0.x,-inVec0.y,-inVec0.z);
  
     colors.push(color.r,color.g,color.b);
     colors.push(colorLeft.r,colorLeft.g,colorLeft.b);
@@ -439,7 +476,8 @@ let pieData = {
   height: 1,
   segments: 12,
   color: new THREE.Color( 0x0030D7 ),
-  other: null
+  other: null,
+  texture: 'glossy'
 };
 
 let pieGeometry = piePiece(
@@ -451,6 +489,11 @@ let pieGeometry = piePiece(
   pieData.segments
 );
 let pieMaterial = new THREE.MeshPhongMaterial({color: 0x3232ff, shininess: 80, side: THREE.FrontSide,vertexColors: false});
+let materialColor = new THREE.Color();
+materialColor.setRGB(0.8, 0.2, 0.5 );
+
+let wireMaterial = new THREE.MeshBasicMaterial( { color: 0xFFFFFF, wireframe: true } );
+let flatMaterial = new THREE.MeshPhongMaterial( { color: materialColor, specular: 0x000000, flatShading: true, side: THREE.DoubleSide } );
 let pieMaterialMinus = new THREE.MeshPhongMaterial({color: 0xff3232, shininess: 80, side: THREE.FrontSide,vertexColors: false});
 let pieMaterialTheta = new THREE.MeshPhongMaterial({color: 0xffffff, shininess: 80, side: THREE.FrontSide,vertexColors: true});
 let pieMesh = new THREE.Mesh(pieGeometry,pieMaterialMinus);
@@ -466,7 +509,8 @@ function updatePie() {
     pieData.thetaStart,
     pieData.angle,
     pieData.height,
-    pieData.segments
+    pieData.segments,
+    pieData.material
   );
   render();
 }
@@ -483,6 +527,7 @@ pieFolder.add(pieData,"thetaStart",0,2*Math.PI).onChange(() => {setTimeout(updat
 pieFolder.add(pieData,"angle",0,2*Math.PI).onChange(() => {setTimeout(updatePie,100);});
 pieFolder.add(pieData,"height",0,10).onChange(() => {setTimeout(updatePie,100);});
 pieFolder.add(pieData,"segments",1,25,1).onChange(() => {setTimeout(updatePie,100);});
+pieFolder.add(pieData,"texture",['flat','wire','glossy']).onChange((val) => {pieMesh.material = (val == 'flat') ? flatMaterial : pieMaterial; render();});
 // pieFolder.addColor(pieData,"other").onChange((val) => {console.log(val); pieData.color.setRGB(val.r/256,val.g/256,val.b/256); pieMaterial.setValues( {color: pieData.color }); setTimeout(updatePie,100);});
 
 
